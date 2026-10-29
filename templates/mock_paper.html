@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ paper.title }} — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<div class="no-print" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <a href="{{ url_for('predictions_page') }}" style="color: var(--accent); text-decoration: none; font-size: 0.9rem;">&larr; Back to Predictions</a>
+        <h1 style="margin-top: 0.25rem;">Predicted Mock Examination Paper</h1>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button onclick="window.print()" class="btn btn-secondary">
+            <span>🖨️ Print Paper</span>
+        </button>
+        <a href="{{ url_for('export_mock_paper_pdf_route') }}?target_marks={{ paper.total_marks }}&target_questions={{ paper.questions|length }}" class="btn btn-primary">
+            <span>📄 Download Official PDF</span>
+        </a>
+        <button onclick="toggleSolutions()" id="solBtn" class="btn btn-secondary">
+            <span>👁️ Toggle Marking Scheme</span>
+        </button>
+    </div>
+</div>
+
+<!-- Re-generate Controls (Non-printable) -->
+<div class="card no-print" style="margin-bottom: 2rem;">
+    <div style="padding: 1.25rem;">
+        <form method="POST" action="{{ url_for('mock_paper_page') }}" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 220px;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Paper Title</label>
+                <input type="text" name="title" value="{{ paper.title }}" class="form-control" style="width: 100%;">
+            </div>
+            <div style="flex: 1; min-width: 130px;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Target Marks</label>
+                <select name="target_marks" class="form-control" style="width: 100%;">
+                    <option value="25" {% if paper.total_marks <= 30 %}selected{% endif %}>25 Marks</option>
+                    <option value="50" {% if paper.total_marks > 30 and paper.total_marks <= 60 %}selected{% endif %}>50 Marks</option>
+                    <option value="75" {% if paper.total_marks > 60 and paper.total_marks <= 85 %}selected{% endif %}>75 Marks</option>
+                    <option value="100" {% if paper.total_marks > 85 %}selected{% endif %}>100 Marks</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 130px;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Question Count</label>
+                <input type="number" name="target_questions" value="{{ paper.questions|length }}" min="5" max="50" class="form-control" style="width: 100%;">
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Regenerate Paper</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Examination Sheet (Optimized for Screen & Print) -->
+<article class="exam-paper-container" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; margin-bottom: 3rem; box-shadow: var(--shadow-md);">
+    <!-- Header Block -->
+    <header style="text-align: center; border-bottom: 2px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.75rem; color: var(--text-primary); margin-bottom: 0.5rem; letter-spacing: -0.02em;">{{ paper.title }}</h2>
+        <div style="display: flex; justify-content: center; gap: 2rem; font-size: 0.95rem; color: var(--text-secondary); font-weight: 500;">
+            <div><strong>Total Marks:</strong> {{ paper.total_marks }}</div>
+            <div><strong>Time Allowed:</strong> {{ paper.estimated_time_minutes }} Minutes</div>
+            <div><strong>Exam Pace:</strong> ~1.8 min/mark</div>
+        </div>
+    </header>
+
+    <!-- Candidate Instructions Box -->
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin-bottom: 2rem; font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6;">
+        <strong style="color: var(--text-primary); display: block; margin-bottom: 0.25rem;">INSTRUCTIONS FOR CANDIDATES:</strong>
+        <ol style="padding-left: 1.25rem; margin: 0;">
+            <li>All questions are compulsory. Marks allocated to each question are indicated in brackets at the right.</li>
+            <li>Section A contains Multiple Choice Questions. Select the single best answer.</li>
+            <li>In Section B, C, and D, show all relevant steps, equations, and diagrams. Neat presentation carries marks.</li>
+            <li>Read each question carefully before attempting. Manage your time according to marks weightage.</li>
+        </ol>
+    </div>
+
+    <!-- Paper Content / Sections -->
+    {% if not paper.sections %}
+        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+            <p>{{ paper.strategy_note }}</p>
+        </div>
+    {% else %}
+        {% set global_counter = namespace(value=1) %}
+        {% for sec in paper.sections %}
+        <section style="margin-bottom: 2.5rem;">
+            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.5rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: baseline;">
+                <h3 style="font-size: 1.2rem; color: var(--accent); margin: 0;">{{ sec.section_name }}</h3>
+                <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">[{{ sec.total_marks }} Marks]</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+                {% for q in sec.questions %}
+                <div style="line-height: 1.6;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.5rem;">
+                        <div style="font-size: 1.05rem; color: var(--text-primary);">
+                            <strong>Q{{ global_counter.value }}.</strong> {{ q.question_text }}
+                        </div>
+                        <div style="font-weight: 600; color: var(--text-secondary); white-space: nowrap; font-size: 0.9rem;">
+                            [{{ q.marks }} Mark{% if q.marks > 1 %}s{% endif %}]
+                        </div>
+                    </div>
+
+                    <!-- Options for MCQs -->
+                    {% if q.options %}
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem 1.5rem; margin-top: 0.5rem; padding-left: 1.5rem;">
+                        {% for opt in q.options %}
+                        <div style="font-size: 0.925rem; color: var(--text-secondary);">
+                            <strong style="color: var(--accent);">({{ opt.label }})</strong> {{ opt.text }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Marking Scheme Solution (Toggleable) -->
+                    <div class="marking-scheme" style="display: none; margin-top: 0.75rem; padding: 0.75rem 1rem; background: rgba(16, 185, 129, 0.08); border-left: 3px solid var(--success); border-radius: var(--radius-sm); font-size: 0.875rem;">
+                        <strong style="color: var(--success);">Marking Scheme / Answer:</strong>
+                        <span style="color: var(--text-primary); margin-left: 0.5rem;">
+                            {% if q.answer %}
+                                {{ q.answer }}
+                            {% else %}
+                                <em>Full derivation / explanation required based on standard textbook rubric.</em>
+                            {% endif %}
+                        </span>
+                        <div style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-muted);">
+                            Topic: {{ q.topic_name }} &bull; Bloom: {{ q.bloom_level|title }} &bull; Difficulty: {{ q.difficulty_tier }}
+                        </div>
+                    </div>
+                </div>
+                {% set global_counter.value = global_counter.value + 1 %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    {% endif %}
+
+    <footer style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+        *** END OF EXAMINATION PAPER &bull; GOOD LUCK ***
+    </footer>
+</article>
+
+<style>
+@media print {
+    .no-print, .navbar, .footer {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    .exam-paper-container {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        background: white !important;
+        color: black !important;
+    }
+    .exam-paper-container h2,
+    .exam-paper-container h3,
+    .exam-paper-container strong,
+    .exam-paper-container div {
+        color: black !important;
+    }
+    .marking-scheme {
+        display: none !important; /* Hide answers when printing exam paper */
+    }
+}
+</style>
+
+<script>
+let showSolutions = false;
+function toggleSolutions() {
+    showSolutions = !showSolutions;
+    const schemes = document.querySelectorAll('.marking-scheme');
+    schemes.forEach(el => {
+        el.style.display = showSolutions ? 'block' : 'none';
+    });
+    const btn = document.getElementById('solBtn');
+    if (btn) {
+        btn.innerHTML = showSolutions ? '<span>🙈 Hide Marking Scheme</span>' : '<span>👁️ Toggle Marking Scheme</span>';
+    }
+}
+</script>
+{% endblock %}

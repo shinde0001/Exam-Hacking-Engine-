@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Ingestion Dashboard</h1>
+        <p class="subtitle">Phase 1 &bull; Document Management & Status Tracking</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('upload_page') }}" class="btn btn-primary">+ Upload New Documents</a>
+    </div>
+</section>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Documents</div>
+        <div class="stat-value">{{ stats.total_documents }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Successfully Ingested</div>
+        <div class="stat-value text-success">{{ stats.ingested_documents }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Pages Extracted</div>
+        <div class="stat-value text-accent">{{ stats.total_pages }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Extracted Questions</div>
+        <div class="stat-value text-purple">{{ stats.total_questions or 0 }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Valid for Predictions</div>
+        <div class="stat-value text-success">{{ stats.valid_questions or 0 }}</div>
+    </div>
+</div>
+
+<!-- Documents List -->
+<section class="card">
+    <div class="card-header">
+        <h2>Uploaded Documents</h2>
+        <span class="badge">{{ documents|length }} items</span>
+    </div>
+    {% if documents %}
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Format</th>
+                        <th>Year</th>
+                        <th>Subject</th>
+                        <th>Pages</th>
+                        <th>Status</th>
+                        <th>Uploaded At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td class="font-medium">
+                            <a href="{{ url_for('view_document', doc_id=doc.id) }}" class="doc-link">
+                                {{ doc.filename }}
+                            </a>
+                        </td>
+                        <td><span class="pill-format">{{ doc.file_type | upper }}</span></td>
+                        <td>{{ doc.year or '—' }}</td>
+                        <td>{{ doc.subject or '—' }}</td>
+                        <td>{{ doc.total_pages }}</td>
+                        <td>
+                            {% if doc.status == 'ingested' %}
+                                <span class="status-pill status-success">Ingested</span>
+                            {% elif doc.status == 'extracted' %}
+                                <span class="status-pill status-info">Extracted</span>
+                            {% elif doc.status == 'indexed' %}
+                                <span class="status-pill status-purple">Indexed</span>
+                            {% elif doc.status == 'ingesting' %}
+                                <span class="status-pill status-warning">Ingesting...</span>
+                            {% elif doc.status == 'failed' %}
+                                <span class="status-pill status-danger" title="{{ doc.error_message or 'Unknown error' }}">Failed</span>
+                            {% else %}
+                                <span class="status-pill">{{ doc.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted text-sm">{{ doc.created_at }}</td>
+                        <td>
+                            <div class="action-btn-group">
+                                <a href="{{ url_for('view_document', doc_id=doc.id) }}" class="btn-sm btn-outline" title="View Extracted Pages">Pages</a>
+                                <a href="{{ url_for('view_document_questions', doc_id=doc.id) }}" class="btn-sm btn-outline" style="color: var(--accent); border-color: rgba(56, 189, 248, 0.4);" title="View Questions">Questions</a>
+                                <form method="POST" action="{{ url_for('extract_document_questions_route', doc_id=doc.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn-sm btn-outline" title="Extract Questions">⚡ Extract</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('reingest_document', doc_id=doc.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn-sm btn-outline" title="Re-run ingestion">Re-ingest</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_doc', doc_id=doc.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                                    <button type="submit" class="btn-sm btn-danger-outline" title="Delete">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <h3>No documents uploaded yet</h3>
+            <p>Upload past papers, textbooks, notes (PDF, DOCX, TXT, or images) to start the engine.</p>
+            <a href="{{ url_for('upload_page') }}" class="btn btn-primary" style="margin-top: 1rem;">Upload Your First Document</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

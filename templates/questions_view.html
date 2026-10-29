@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Extracted Questions — {{ document.filename }}{% endblock %}
+
+{% block content %}
+<div class="doc-view-header">
+    <div class="breadcrumb">
+        <a href="{{ url_for('index') }}">&larr; Back to Dashboard</a> &bull;
+        <a href="{{ url_for('view_document', doc_id=document.id) }}">Document Details</a>
+    </div>
+    <div class="doc-title-row">
+        <h1>Extracted Questions</h1>
+        <span class="pill-format">{{ document.filename }}</span>
+    </div>
+    <div class="doc-meta-tags">
+        <span class="meta-item"><strong>Status:</strong> {{ document.status }}</span>
+        <span class="meta-item"><strong>Total Questions:</strong> {{ questions|length }}</span>
+        <span class="meta-item"><strong>Valid for Pipeline:</strong> {{ questions|selectattr('is_valid')|list|length }}</span>
+        <span class="meta-item"><strong>Document Year:</strong> {{ document.year or '—' }}</span>
+        <span class="meta-item"><strong>Subject:</strong> {{ document.subject or '—' }}</span>
+    </div>
+</div>
+
+<!-- Controls & Filter Bar -->
+<div class="filter-bar">
+    <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All ({{ questions|length }})</button>
+        <button class="filter-btn" data-filter="valid">Valid Only ({{ questions|selectattr('is_valid')|list|length }})</button>
+        <button class="filter-btn" data-filter="mcq">MCQ</button>
+        <button class="filter-btn" data-filter="numerical">Numerical</button>
+        <button class="filter-btn" data-filter="short_answer">Short Answer</button>
+        <button class="filter-btn" data-filter="long_answer">Long Answer</button>
+        <button class="filter-btn" data-filter="math">Math</button>
+    </div>
+    <div class="actions">
+        <form method="POST" action="{{ url_for('extract_document_questions_route', doc_id=document.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-outline btn-sm">⚡ Re-extract Questions</button>
+        </form>
+    </div>
+</div>
+
+{% if questions %}
+    <div class="questions-list">
+        {% for q in questions %}
+            <div class="question-card {% if not q.is_valid %}question-invalid{% endif %}"
+                 data-type="{{ q.question_type }}"
+                 data-valid="{{ 'true' if q.is_valid else 'false' }}"
+                 data-math="{{ 'true' if q.has_math else 'false' }}">
+                
+                <div class="question-card-header">
+                    <div class="q-header-left">
+                        <span class="q-number-badge">Q. {{ q.question_number }}</span>
+                        <span class="q-type-pill q-type-{{ q.question_type }}">
+                            {{ q.question_type|replace('_', ' ')|upper }}
+                        </span>
+                        {% if q.marks %}
+                            <span class="q-marks-badge">[{{ q.marks }} Mark{% if q.marks > 1 %}s{% endif %}]</span>
+                        {% endif %}
+                        {% if q.has_math %}
+                            <span class="q-math-badge" title="Contains mathematical symbols or formulas">fx Math</span>
+                        {% endif %}
+                        <span class="q-page-badge">Page {{ q.page_number }}</span>
+                    </div>
+
+                    <div class="q-header-right">
+                        <div class="quality-badge {% if q.quality_score >= 80 %}quality-high{% elif q.quality_score >= 60 %}quality-med{% else %}quality-low{% endif %}"
+                             title="Quality score computed by engine.validator">
+                            Quality: {{ q.quality_score }}/100
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Question Stem -->
+                <div class="question-stem">
+                    {{ q.question_text }}
+                </div>
+
+                <!-- MCQ Options -->
+                {% if q.options %}
+                    <div class="options-grid">
+                        {% for opt in q.options %}
+                            <div class="option-item {% if q.answer and (opt.label == q.answer or opt.label in q.answer) %}option-correct{% endif %}">
+                                <span class="option-label">{{ opt.label }}</span>
+                                <span class="option-text">{{ opt.text }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Answer Key -->
+                {% if q.answer %}
+                    <div class="q-answer-box">
+                        <strong>Answer Key:</strong> <span class="q-answer-value">{{ q.answer }}</span>
+                    </div>
+                {% endif %}
+
+                <!-- Validation Issues / Warnings -->
+                {% if q.issues %}
+                    <div class="validation-issues">
+                        <span class="issue-icon">⚠️</span>
+                        <span class="issue-list">{{ q.issues|join(' &bull; ') }}</span>
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state card">
+        <div class="empty-icon">❓</div>
+        <h3>No questions extracted yet</h3>
+        <p>Run the extraction pipeline to parse questions, options, types, and quality scores from this document.</p>
+        <form method="POST" action="{{ url_for('extract_document_questions_route', doc_id=document.id) }}" style="margin-top: 1.25rem;">
+            <button type="submit" class="btn btn-primary">⚡ Extract Questions Now</button>
+        </form>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const questionCards = document.querySelectorAll('.question-card');
+
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const filter = btn.getAttribute('data-filter');
+            questionCards.forEach(card => {
+                const type = card.getAttribute('data-type');
+                const isValid = card.getAttribute('data-valid') === 'true';
+                const hasMath = card.getAttribute('data-math') === 'true';
+
+                let show = true;
+                if (filter === 'valid') show = isValid;
+                else if (filter === 'mcq') show = (type === 'mcq');
+                else if (filter === 'numerical') show = (type === 'numerical');
+                else if (filter === 'short_answer') show = (type === 'short_answer');
+                else if (filter === 'long_answer') show = (type === 'long_answer');
+                else if (filter === 'math') show = hasMath;
+
+                card.style.display = show ? 'block' : 'none';
+            });
+        });
+    });
+</script>
+{% endblock %}

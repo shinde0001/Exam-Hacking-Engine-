@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.filename }} — Details{% endblock %}
+
+{% block content %}
+<div class="doc-view-header">
+    <div class="breadcrumb">
+        <a href="{{ url_for('index') }}">&larr; Back to Dashboard</a>
+    </div>
+    <div class="doc-title-row">
+        <h1>{{ document.filename }}</h1>
+        <span class="pill-format">{{ document.file_type | upper }}</span>
+    </div>
+    <div class="doc-meta-tags">
+        <span class="meta-item"><strong>Status:</strong> {{ document.status }}</span>
+        <span class="meta-item"><strong>Year:</strong> {{ document.year or 'Not specified' }}</span>
+        <span class="meta-item"><strong>Subject:</strong> {{ document.subject or 'Not specified' }}</span>
+        <span class="meta-item"><strong>Size:</strong> {{ (document.file_size / 1024)|round(1) }} KB</span>
+        <span class="meta-item"><strong>Pages:</strong> {{ pages|length }}</span>
+        <span class="meta-item"><strong>SHA-256:</strong> <code>{{ document.file_hash[:16] }}...</code></span>
+    </div>
+    <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('view_document_questions', doc_id=document.id) }}" class="btn btn-primary btn-sm">
+            📋 View Extracted Questions
+        </a>
+        <form method="POST" action="{{ url_for('extract_document_questions_route', doc_id=document.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-outline btn-sm">⚡ Run Question Extraction</button>
+        </form>
+    </div>
+</div>
+
+{% if document.error_message %}
+    <div class="alert alert-danger">
+        <strong>Error during processing:</strong> {{ document.error_message }}
+    </div>
+{% endif %}
+
+<section class="card pages-section">
+    <div class="card-header">
+        <h2>Extracted Pages ({{ pages|length }})</h2>
+        <span class="text-sm text-muted">Raw text stored for Phase 2 question extraction</span>
+    </div>
+
+    {% if pages %}
+        <div class="pages-list">
+            {% for page in pages %}
+                <div class="page-card">
+                    <div class="page-header-row">
+                        <span class="page-num-badge">Page {{ page.page_number }}</span>
+                        <div class="page-meta-badges">
+                            <span class="badge-subtle">Method: {{ page.extraction_method }}</span>
+                            <span class="badge-subtle">{{ page.char_count }} chars</span>
+                            {% if page.ocr_applied %}
+                                <span class="badge-warning">OCR Used</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <pre class="page-raw-text">{{ page.raw_text if page.raw_text else '— (Empty page or non-text content) —' }}</pre>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No extracted pages found for this document.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

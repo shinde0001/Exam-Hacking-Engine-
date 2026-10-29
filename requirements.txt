@@ -1,0 +1,34 @@
+# Exam-Hacking Engine - Dependencies
+
+# Web Framework
+Flask==3.1.1
+Werkzeug==3.1.3
+
+# PDF & Document Processing
+pdfplumber==0.11.6
+PyMuPDF==1.25.5
+python-docx==1.1.2
+
+# OCR
+pytesseract==0.3.13
+Pillow==11.2.1
+
+# NLP & Embeddings
+sentence-transformers==4.1.0
+
+# Math Parsing
+sympy==1.13.3
+
+# Fuzzy Matching
+rapidfuzz==3.13.0
+
+# Vector Search
+faiss-cpu==1.11.0
+
+# ML & Statistics
+scikit-learn==1.6.1
+scipy==1.15.2
+numpy==2.2.5
+
+# PDF Export Generation
+reportlab>=4.0.0

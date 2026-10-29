@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Patterns & Intelligence — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Exam Pattern Intelligence</h1>
+        <p class="subtitle">Phase 4 &bull; Statistical analysis of question-setter habits, option biases, Bloom's cognitive depth, and topic trajectories</p>
+    </div>
+</section>
+
+<!-- Strategic Insight Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Option Bias</div>
+        <div class="stat-value text-accent">
+            {% if report.option_bias.favored_option %}
+                Option {{ report.option_bias.favored_option }} ({{ report.option_bias.percentages[report.option_bias.favored_option] }}%)
+            {% else %}
+                Balanced
+            {% endif %}
+        </div>
+        <small class="text-muted text-sm">p-value: {{ report.option_bias.p_value }}</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Dominant Cognitive Tier</div>
+        <div class="stat-value text-purple">{{ report.bloom_distribution.dominant_level|upper }}</div>
+        <small class="text-muted text-sm">Avg Tier: {{ report.bloom_distribution.average_cognitive_tier }}/6.0</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Average Difficulty</div>
+        <div class="stat-value text-success">{{ report.difficulty.avg_difficulty }}/100</div>
+        <small class="text-muted text-sm">Easy: {{ report.difficulty.percentages.Easy }}% &bull; Med: {{ report.difficulty.percentages.Medium }}% &bull; Hard: {{ report.difficulty.percentages.Hard }}%</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Topic Clusters</div>
+        <div class="stat-value">{{ report.topic_frequency|length }}</div>
+        <small class="text-muted text-sm">Across {{ report.total_questions }} questions</small>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Section 1: Option Position Bias Visualizer -->
+    <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <h2>Option Position Bias (A/B/C/D)</h2>
+            {% if report.option_bias.has_significant_bias %}
+                <span class="status-pill status-danger">Significant Bias</span>
+            {% else %}
+                <span class="status-pill status-success">Uniform</span>
+            {% endif %}
+        </div>
+        <div style="padding: 1.5rem;">
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                {{ report.option_bias.insight }}
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                {% for opt, pct in report.option_bias.percentages.items() %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                            <strong>Option {{ opt }}</strong>
+                            <span>{{ report.option_bias.counts[opt] }} Qs ({{ pct }}%)</span>
+                        </div>
+                        <div style="background: rgba(255, 255, 255, 0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="background: {% if opt == report.option_bias.favored_option %}var(--accent){% else %}var(--text-muted){% endif %}; width: {{ pct }}%; height: 100%;"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div style="margin-top: 1.25rem; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                💡 <strong>Distractor Insight:</strong> {{ report.distractors.insight }}
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Bloom's Taxonomy Cognitive Depth -->
+    <section class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <h2>Bloom's Taxonomy Depth</h2>
+            <span class="badge">Cognitive Hierarchy</span>
+        </div>
+        <div style="padding: 1.5rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                {% for level, pct in report.bloom_distribution.percentages.items() %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                            <strong style="text-transform: capitalize;">{{ level }}</strong>
+                            <span>{{ report.bloom_distribution.counts[level] }} Qs ({{ pct }}%)</span>
+                        </div>
+                        <div style="background: rgba(255, 255, 255, 0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="background: var(--purple); width: {{ pct }}%; height: 100%;"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Section 3: Topic Weightage & Frequency Ranking -->
+<section class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2>Topic Frequency & Marks Weightage</h2>
+        <span class="badge">{{ report.topic_frequency|length }} Clusters</span>
+    </div>
+    {% if report.topic_frequency %}
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Topic Name</th>
+                        <th>Top Key Terms</th>
+                        <th>Questions</th>
+                        <th>Marks</th>
+                        <th>Weightage %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in report.topic_frequency %}
+                        <tr>
+                            <td class="font-medium" style="color: var(--accent);">{{ t.name }}</td>
+                            <td>
+                                {% for kw in t.keywords %}
+                                    <span class="badge-subtle" style="margin-right: 0.2rem;">{{ kw }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ t.question_count }}</td>
+                            <td>{{ t.total_marks }} M</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div style="background: rgba(255, 255, 255, 0.05); height: 6px; width: 60px; border-radius: 3px; overflow: hidden;">
+                                        <div style="background: var(--success); width: {{ t.weightage_percent }}%; height: 100%;"></div>
+                                    </div>
+                                    <span>{{ t.weightage_percent }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No topic patterns discovered yet.</p>
+        </div>
+    {% endif %}
+</section>
+
+<!-- Section 4: Setter Habits & Co-occurrence -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <!-- Question-Setter Habits -->
+    <section class="card">
+        <div class="card-header">
+            <h2>Question-Setter Archetypes</h2>
+            <span class="badge">Style Clustering</span>
+        </div>
+        <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+            {% for cluster in report.setter_habits %}
+                <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong style="color: var(--text-primary); font-size: 0.95rem;">{{ cluster.style_name }}</strong>
+                        <span class="status-pill status-info">{{ cluster.percentage }}%</span>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                        Key markers: {{ cluster.keywords|join(', ') }}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                        {{ cluster.question_count }} questions fit this setter habit template.
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>Insufficient question volume for style clustering.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Concept Co-occurrence -->
+    <section class="card">
+        <div class="card-header">
+            <h2>Frequently Co-Occurring Topics</h2>
+            <span class="badge">Apriori Pairs</span>
+        </div>
+        <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+            {% for pair in report.cooccurrence %}
+                <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent);">
+                            {{ pair.topic_1 }} &harr; {{ pair.topic_2 }}
+                        </div>
+                        <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            Appears together in {{ pair.cooccurrence_count }} examination paper(s)
+                        </div>
+                    </div>
+                    <span class="badge-subtle">{{ pair.paper_frequency_percent }}% of exams</span>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No paired topics detected across multiple papers.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

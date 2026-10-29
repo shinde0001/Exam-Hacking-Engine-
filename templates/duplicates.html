@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Duplicates & Conflicts — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Duplicates & Conflict Detector</h1>
+        <p class="subtitle">Phase 3 &bull; 3-Layer Similarity (Exact, Near-Exact, Semantic) & Answer Conflict Verification</p>
+    </div>
+    <div class="actions">
+        <form method="POST" action="{{ url_for('scan_duplicates_route') }}" style="display:inline;">
+            <button type="submit" class="btn btn-primary">⚡ Scan Corpus for Duplicates</button>
+        </form>
+    </div>
+</section>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Duplicate Pairs</div>
+        <div class="stat-value text-accent">{{ stats.total_duplicates }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Exact Repeats</div>
+        <div class="stat-value text-success">{{ stats.exact_duplicates }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Near-Exact (Reworded)</div>
+        <div class="stat-value">{{ stats.near_exact_duplicates }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Semantic Matches</div>
+        <div class="stat-value text-purple">{{ stats.semantic_duplicates }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Answer Conflicts</div>
+        <div class="stat-value text-danger">{{ stats.answer_conflicts }}</div>
+    </div>
+</div>
+
+<!-- Section 1: Answer Conflicts Alert -->
+{% if conflicts %}
+    <section class="card" style="border-left: 4px solid var(--danger); margin-bottom: 2rem;">
+        <div class="card-header" style="background: rgba(239, 68, 68, 0.08);">
+            <h2>🚨 Answer Conflicts Detected ({{ conflicts|length }})</h2>
+            <span class="badge" style="background: var(--danger-bg); color: #f87171;">Needs Review</span>
+        </div>
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            {% for c in conflicts %}
+                <div class="question-card" style="border-color: rgba(239, 68, 68, 0.4);">
+                    <div style="margin-bottom: 0.75rem; color: #f87171; font-weight: 600; font-size: 0.95rem;">
+                        ⚠️ {{ c.conflict_note }}
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: var(--radius-sm);">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+                                <strong>{{ c.source_doc }}</strong> ({{ c.source_year or 'Unknown' }}) &bull; Q. {{ c.source_qnum }}
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">{{ c.source_text }}</div>
+                            <div style="color: #38bdf8; font-weight: 600; font-size: 0.9rem;">
+                                Stated Answer: <code>{{ c.source_answer or 'None' }}</code>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: var(--radius-sm);">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+                                <strong>{{ c.target_doc }}</strong> ({{ c.target_year or 'Unknown' }}) &bull; Q. {{ c.target_qnum }}
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">{{ c.target_text }}</div>
+                            <div style="color: #f87171; font-weight: 600; font-size: 0.9rem;">
+                                Conflicting Answer: <code>{{ c.target_answer or 'None' }}</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+{% endif %}
+
+<!-- Section 2: All Duplicate Pairs Table -->
+<section class="card">
+    <div class="card-header">
+        <h2>Duplicate Question Pairs</h2>
+        <span class="badge">{{ edges|length }} pairs</span>
+    </div>
+
+    {% if edges %}
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Layer & Match</th>
+                        <th style="width: 40%;">Source Question</th>
+                        <th style="width: 40%;">Matched Duplicate</th>
+                        <th style="width: 5%;">Conflict</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for edge in edges %}
+                    <tr>
+                        <td>
+                            {% if edge.similarity_layer == 'exact' %}
+                                <span class="status-pill status-success">Exact Match</span>
+                            {% elif edge.similarity_layer == 'near_exact' %}
+                                <span class="status-pill status-info">Near-Exact</span>
+                            {% else %}
+                                <span class="status-pill status-purple">Semantic</span>
+                            {% endif %}
+                            <div style="margin-top: 0.35rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
+                                {{ (edge.score * 100)|round(1) }}% match
+                            </div>
+                        </td>
+                        <td>
+                            <div style="font-size: 0.775rem; color: var(--accent); margin-bottom: 0.25rem;">
+                                {{ edge.source_doc }} ({{ edge.source_year or '—' }}) &bull; Q.{{ edge.source_qnum }}
+                            </div>
+                            <div style="font-size: 0.9rem; line-height: 1.4;">{{ edge.source_text }}</div>
+                        </td>
+                        <td>
+                            <div style="font-size: 0.775rem; color: var(--accent); margin-bottom: 0.25rem;">
+                                {{ edge.target_doc }} ({{ edge.target_year or '—' }}) &bull; Q.{{ edge.target_qnum }}
+                            </div>
+                            <div style="font-size: 0.9rem; line-height: 1.4;">{{ edge.target_text }}</div>
+                        </td>
+                        <td>
+                            {% if edge.has_answer_conflict %}
+                                <span class="status-pill status-danger" title="{{ edge.conflict_note }}">Conflict</span>
+                            {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🔗</div>
+            <h3>No duplicates found yet</h3>
+            <p>Click "Scan Corpus for Duplicates" to run the exact, near-exact, and semantic matching pipeline across all ingested papers.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

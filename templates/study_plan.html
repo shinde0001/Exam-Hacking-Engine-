@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Spaced Repetition Study Plan (Phase 6) — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Spaced Repetition Study Planner</h1>
+        <p class="subtitle">Phase 6 &bull; SuperMemo-2 (SM-2) Spaced Repetition Scheduling: High-Yield Topics First, Systematic Review Milestones (1, 3, 7, 14, 30 Days)</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('export_study_plan_csv_route') }}?exam_date={{ plan.target_exam_date }}&hours={{ plan.daily_study_hours }}" class="btn btn-primary">
+            <span>📊 Export Study CSV</span>
+        </a>
+        <a href="{{ url_for('export_anki_flashcards') }}" class="btn btn-secondary">
+            <span>📱 Sync with Anki</span>
+        </a>
+    </div>
+</section>
+
+<!-- Plan Configuration Bar -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div style="padding: 1.25rem;">
+        <form method="POST" action="{{ url_for('study_plan_page') }}" style="display: flex; gap: 1.25rem; align-items: flex-end; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 180px;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Target Exam Date</label>
+                <input type="date" name="target_exam_date" value="{{ plan.target_exam_date }}" class="form-control" style="width: 100%;">
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+                <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Daily Study Hours</label>
+                <select name="daily_study_hours" class="form-control" style="width: 100%;">
+                    <option value="1.0" {% if plan.daily_study_hours == 1.0 %}selected{% endif %}>1.0 Hour / Day</option>
+                    <option value="2.0" {% if plan.daily_study_hours == 2.0 %}selected{% endif %}>2.0 Hours / Day</option>
+                    <option value="3.0" {% if plan.daily_study_hours == 3.0 %}selected{% endif %}>3.0 Hours / Day</option>
+                    <option value="4.0" {% if plan.daily_study_hours == 4.0 %}selected{% endif %}>4.0 Hours / Day (Default)</option>
+                    <option value="6.0" {% if plan.daily_study_hours == 6.0 %}selected{% endif %}>6.0 Hours / Day</option>
+                    <option value="8.0" {% if plan.daily_study_hours == 8.0 %}selected{% endif %}>8.0 Hours / Day (Intensive)</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Update Study Schedule</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Readiness & Status Metrics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Exam Readiness</div>
+        <div class="stat-value text-accent">{{ plan.readiness_score_percent }}%</div>
+        <div style="margin-top: 0.5rem; background: rgba(255, 255, 255, 0.05); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: var(--accent); width: {{ plan.readiness_score_percent }}%; height: 100%;"></div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Days to Exam</div>
+        <div class="stat-value text-purple">{{ plan.days_remaining }} Days</div>
+        <small class="text-muted text-sm">Exam: {{ plan.target_exam_date }}</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Study Corpus</div>
+        <div class="stat-value">{{ plan.total_questions }} Qs</div>
+        <small class="text-muted text-sm">~{{ (plan.total_study_minutes_estimated / 60)|round(1) }} Total Study Hours</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Mastery Progress</div>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+            <span class="status-pill status-success" title="Confident/Mastered">
+                ✓ {{ plan.progress_summary.confident + plan.progress_summary.mastered }} Confident
+            </span>
+            <span class="status-pill status-warning" title="Needs Review">
+                ! {{ plan.progress_summary.needs_review }} Needs Review
+            </span>
+            <span class="status-pill" style="background: rgba(255,255,255,0.05);" title="Not Started">
+                ○ {{ plan.progress_summary.not_started }} New
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Day-by-Day Study Calendar Timeline -->
+<section class="card">
+    <div class="card-header">
+        <div>
+            <h2>Daily Study Timeline</h2>
+            <p class="subtitle" style="margin-bottom: 0;">Spaced repetition sequence tailored to your exam horizon</p>
+        </div>
+        <span class="status-pill status-info">{{ plan.daily_schedule|length }} Days Planned</span>
+    </div>
+
+    <div style="padding: 1.5rem;">
+        {% if not plan.daily_schedule %}
+            <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                <p>No questions currently available to schedule. Ingest past papers to build your study plan.</p>
+                <a href="{{ url_for('upload_page') }}" class="btn btn-primary" style="margin-top: 1rem;">Upload Past Papers</a>
+            </div>
+        {% else %}
+            <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+                {% for day in plan.daily_schedule %}
+                <div class="day-card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                    <!-- Day Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-weight: 700; font-size: 1.15rem; color: var(--accent);">Day {{ day.day_number }}</span>
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">{{ day.date_str }}</span>
+                            {% if day.focus_topics %}
+                                <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                    {% for top in day.focus_topics %}
+                                        <span class="status-pill" style="background: var(--purple-bg); color: var(--purple); font-size: 0.75rem;">{{ top }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            Time Allocated: <strong>{{ day.allocated_minutes }}m</strong> / {{ day.target_minutes }}m Budget
+                        </div>
+                    </div>
+
+                    <!-- Tasks List -->
+                    {% if not day.tasks %}
+                        <div style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
+                            Light consolidation day &bull; Review prior notes or rest.
+                        </div>
+                    {% else %}
+                        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                            {% for task in day.tasks %}
+                            <div class="task-row" id="task-row-{{ task.question_id }}" style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 0.75rem 1rem; gap: 1rem; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 250px;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                                        <span class="status-pill {% if task.task_type == 'learn' %}status-info{% else %}status-warning{% endif %}" style="font-size: 0.75rem;">
+                                            {{ task.task_type|upper }}
+                                        </span>
+                                        <span class="status-pill" style="background: rgba(255,255,255,0.05); font-size: 0.75rem;">
+                                            ~{{ task.estimated_minutes }} mins
+                                        </span>
+                                        <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                            {{ task.topic_name }} &bull; {{ task.marks }} Mark{% if task.marks > 1 %}s{% endif %}
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 0.95rem; color: var(--text-primary); line-height: 1.4;">
+                                        {{ task.question_text }}
+                                    </div>
+                                </div>
+
+                                <!-- SM-2 Interactive Rating Buttons -->
+                                <div style="display: flex; align-items: center; gap: 0.4rem;" id="rating-group-{{ task.question_id }}">
+                                    <span class="status-pill status-pill-{{ task.question_id }}" style="font-size: 0.75rem; margin-right: 0.25rem;">
+                                        {{ task.status|replace('_', ' ')|title }}
+                                    </span>
+                                    <button onclick="recordReview({{ task.question_id }}, 2)" class="btn btn-sm btn-secondary" title="Mark Needs Review" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                                        ⚠️ Hard
+                                    </button>
+                                    <button onclick="recordReview({{ task.question_id }}, 4)" class="btn btn-sm btn-primary" title="Mark Confident" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                                        ✓ Good
+                                    </button>
+                                    <button onclick="recordReview({{ task.question_id }}, 5)" class="btn btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: var(--purple); color: white;" title="Mark Mastered">
+                                        ⭐ Master
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+async function recordReview(questionId, rating) {
+    try {
+        const response = await fetch("{{ url_for('api_record_study_review') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                question_id: questionId,
+                rating: rating
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const pills = document.querySelectorAll(`.status-pill-${questionId}`);
+            pills.forEach(p => {
+                p.textContent = data.status.replace('_', ' ').toUpperCase();
+                p.className = `status-pill status-pill-${questionId} ${data.status === 'confident' || data.status === 'mastered' ? 'status-success' : 'status-warning'}`;
+            });
+        } else {
+            alert("Failed to update progress on server.");
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+</script>
+{% endblock %}

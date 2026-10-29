@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Semantic Search — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<div class="search-page-header">
+    <h1>Semantic Question Search</h1>
+    <p class="subtitle">Search the extracted question corpus using natural language queries powered by FAISS vector indexing.</p>
+</div>
+
+<!-- Search Form -->
+<div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <form method="GET" action="{{ url_for('semantic_search_page') }}" class="search-form">
+        <div class="search-input-group">
+            <span class="search-icon">🔍</span>
+            <input type="text" name="q" value="{{ query or '' }}" placeholder="Try: 'thermodynamics first law', 'de broglie wavelength', or 'hydraulic lift'..." required autofocus class="search-input">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+        <div class="search-options" style="margin-top: 1rem; display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+            <label>
+                Top Results:
+                <select name="top_k" class="select-sm">
+                    <option value="5" {% if top_k == 5 %}selected{% endif %}>5</option>
+                    <option value="10" {% if top_k == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if top_k == 20 %}selected{% endif %}>20</option>
+                </select>
+            </label>
+            <label>
+                Min Similarity:
+                <select name="min_score" class="select-sm">
+                    <option value="0.2" {% if min_score == 0.2 %}selected{% endif %}>0.20 (Broad)</option>
+                    <option value="0.4" {% if min_score == 0.4 %}selected{% endif %}>0.40 (Moderate)</option>
+                    <option value="0.6" {% if min_score == 0.6 %}selected{% endif %}>0.60 (Strict)</option>
+                    <option value="0.8" {% if min_score == 0.8 %}selected{% endif %}>0.80 (High)</option>
+                </select>
+            </label>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+{% if query %}
+    <div class="results-header" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <h2>Search Results for <span class="highlight">"{{ query }}"</span></h2>
+        <span class="badge">{{ results|length }} matches found</span>
+    </div>
+
+    {% if results %}
+        <div class="questions-list">
+            {% for q in results %}
+                <div class="question-card">
+                    <div class="question-card-header">
+                        <div class="q-header-left">
+                            <span class="q-number-badge">Q. {{ q.question_number }}</span>
+                            <span class="q-type-pill q-type-{{ q.question_type }}">
+                                {{ q.question_type|replace('_', ' ')|upper }}
+                            </span>
+                            <span class="pill-format">{{ q.document_filename }}</span>
+                            {% if q.document_year %}
+                                <span class="q-marks-badge">{{ q.document_year }}</span>
+                            {% endif %}
+                            {% if q.marks %}
+                                <span class="q-marks-badge">[{{ q.marks }} M]</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="q-header-right">
+                            <span class="quality-badge quality-high" title="Cosine similarity from FAISS index">
+                                Similarity: {{ (q.similarity_score * 100)|round(1) }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="question-stem">
+                        {{ q.question_text }}
+                    </div>
+
+                    {% if q.options %}
+                        <div class="options-grid">
+                            {% for opt in q.options %}
+                                <div class="option-item">
+                                    <span class="option-label">{{ opt.label }}</span>
+                                    <span class="option-text">{{ opt.text }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if q.answer %}
+                        <div class="q-answer-box">
+                            <strong>Answer:</strong> <span class="q-answer-value">{{ q.answer }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state card">
+            <div class="empty-icon">🔎</div>
+            <h3>No matches found</h3>
+            <p>Try lowering the minimum similarity threshold or using broader technical terms.</p>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

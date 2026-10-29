@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Syllabus Weightage Mapper — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Syllabus Weightage Mapper</h1>
+        <p class="subtitle">Map extracted past paper questions directly to your syllabus chapters to discover exam weightage.</p>
+    </div>
+</section>
+
+<!-- Syllabus Input Form -->
+<section class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <h2 style="font-size: 1.15rem; margin-bottom: 0.5rem;">Define Syllabus Chapters</h2>
+    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Enter your course chapters and subtopics (Markdown, plain text, or JSON). Each chapter will be matched against the question corpus.
+    </p>
+
+    <form method="POST" action="{{ url_for('syllabus_page') }}">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+            <textarea name="syllabus_text" rows="8" class="page-raw-text" style="width: 100%; border: 1px solid var(--border-color); outline: none; padding: 1rem;" placeholder="Chapter 1: Units and Measurement&#10;- Dimensions of physical quantities, error analysis&#10;&#10;Chapter 2: Kinematics and Mechanics&#10;- Velocity, acceleration, Newton's laws of motion, work and energy&#10;&#10;Chapter 3: Thermodynamics&#10;- First law of thermodynamics, heat, work, Carnot engine&#10;&#10;Chapter 4: Optics & Modern Physics&#10;- Young's double slit experiment, interference, de Broglie wavelength">{{ raw_syllabus or '' }}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">⚡ Compute Syllabus Weightage</button>
+            {% if not raw_syllabus %}
+                <button type="button" class="btn btn-outline" id="loadSampleBtn">Load Physics Syllabus Template</button>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
+<!-- Chapter Weightage Breakdown -->
+{% if chapters %}
+    <section class="card">
+        <div class="card-header">
+            <h2>Chapter Exam Weightage</h2>
+            <span class="badge">{{ chapters|length }} Chapters Analyzed</span>
+        </div>
+
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th style="width: 8%;">Ch #</th>
+                        <th style="width: 32%;">Chapter Title & Sub-topics</th>
+                        <th style="width: 12%;">Questions</th>
+                        <th style="width: 12%;">Marks</th>
+                        <th style="width: 26%;">Exam Weightage</th>
+                        <th style="width: 10%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ch in chapters %}
+                        <tr>
+                            <td><strong style="color: var(--accent); font-size: 1.05rem;">{{ ch.chapter_number }}</strong></td>
+                            <td>
+                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                    {{ ch.title }}
+                                </div>
+                                {% if ch.subtopics %}
+                                    <div style="font-size: 0.775rem; color: var(--text-muted);">
+                                        {{ ch.subtopics|join(', ') }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>{{ ch.question_count }}</td>
+                            <td><strong>{{ ch.total_marks }} M</strong></td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                    <div style="flex: 1; background: rgba(255, 255, 255, 0.05); height: 8px; border-radius: 4px; overflow: hidden;">
+                                        <div style="background: {% if ch.weightage_percent >= 30 %}var(--accent){% elif ch.weightage_percent >= 15 %}var(--success){% else %}var(--text-muted){% endif %}; width: {{ ch.weightage_percent }}%; height: 100%;"></div>
+                                    </div>
+                                    <span style="font-weight: 600; font-size: 0.85rem; min-width: 45px;">{{ ch.weightage_percent }}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <button type="button" class="btn-sm btn-outline toggle-q-btn" data-target="ch-{{ ch.chapter_number }}">
+                                    View ({{ ch.question_count }})
+                                </button>
+                            </td>
+                        </tr>
+                        <!-- Mapped Questions Dropdown -->
+                        <tr id="ch-{{ ch.chapter_number }}" class="chapter-questions-row" style="display: none; background: rgba(15, 23, 42, 0.3);">
+                            <td colspan="6" style="padding: 1rem 1.5rem;">
+                                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                                    Mapped Questions for {{ ch.title }}:
+                                </div>
+                                {% if ch.mapped_questions %}
+                                    <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                                        {% for q in ch.mapped_questions %}
+                                            <div style="background: rgba(30, 41, 59, 0.5); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;">
+                                                <div style="font-size: 0.875rem;">
+                                                    <strong style="color: var(--accent);">Q.{{ q.question_number }}</strong>
+                                                    <span class="q-type-pill q-type-{{ q.question_type }}" style="margin: 0 0.4rem;">{{ q.question_type }}</span>
+                                                    <span>{{ q.question_text }}</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">
+                                                    Match: {{ (q.match_score * 100)|round(0) }}% &bull; {{ q.marks or 1 }} M
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted text-sm">No past paper questions mapped to this chapter yet.</p>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.toggle-q-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+            const row = document.getElementById(targetId);
+            if (row) {
+                row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+            }
+        });
+    });
+
+    const sampleBtn = document.getElementById('loadSampleBtn');
+    if (sampleBtn) {
+        sampleBtn.addEventListener('click', () => {
+            const sampleText = `Chapter 1: Units, Dimensions & Measurements\\n- Dimensional formula of physical constants, error analysis\\n\\nChapter 2: Fluid Mechanics\\n- Hydraulic lift, Pascal's law, Bernoulli's principle\\n\\nChapter 3: Thermodynamics & Heat\\n- First law of thermodynamics, dQ = dU + dW, Carnot cycle\\n\\nChapter 4: Modern Physics & Quantum Mechanics\\n- De Broglie wavelength, electron kinetic energy\\n\\nChapter 5: Electromagnetism & Optics\\n- Biot-Savart law, circular current loop, Young's double slit interference, fringe width`;
+            document.querySelector('textarea[name="syllabus_text"]').value = sampleText.replace(/\\\\n/g, '\\n');
+        });
+    }
+</script>
+{% endblock %}

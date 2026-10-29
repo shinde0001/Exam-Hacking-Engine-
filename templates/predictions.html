@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Question Predictions (Phase 5) — Exam-Hacking Engine{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <h1>Exam Predictions & Probability Engine</h1>
+        <p class="subtitle">Phase 5 &bull; 6-Algorithm Ensemble: Bayesian, Markov Transitions, Poisson Rates, Cyclic Rotation, Association Rules & PageRank Centrality</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('mock_paper_page') }}" class="btn btn-primary">
+            <span>📝 Generate Mock Paper</span>
+        </a>
+        <a href="{{ url_for('export_predictions_csv') }}" class="btn btn-secondary">
+            <span>📊 Export CSV</span>
+        </a>
+        <a href="{{ url_for('export_anki_flashcards') }}" class="btn btn-secondary">
+            <span>📱 Export Anki Cards</span>
+        </a>
+    </div>
+</section>
+
+<!-- Strategy & Intelligence Summary Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Questions Analyzed</div>
+        <div class="stat-value text-accent">{{ report.total_questions_analyzed }}</div>
+        <small class="text-muted text-sm">Valid corpus questions evaluated</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">High-Yield Topics</div>
+        <div class="stat-value text-success">{{ report.top_topics|length }}</div>
+        <small class="text-muted text-sm">Discovered exam domains</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Cyclic Alerts Due</div>
+        <div class="stat-value {% if report.cyclic_alerts %}text-danger{% else %}text-muted{% endif %}">
+            {{ report.cyclic_alerts|length }}
+        </div>
+        <small class="text-muted text-sm">Rotation cycle due/overdue</small>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Ensemble Model</div>
+        <div class="stat-value text-purple">6 Algos</div>
+        <small class="text-muted text-sm">Multi-algorithm consensus</small>
+    </div>
+</div>
+
+<!-- Strategy Insights Banner -->
+{% if report.exam_strategy_insights %}
+<div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--accent); background: rgba(56, 189, 248, 0.05);">
+    <div class="card-header">
+        <h2>⚡ Strategic Exam Insights</h2>
+    </div>
+    <div style="padding: 1.25rem;">
+        <ul style="list-style-type: none; display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for insight in report.exam_strategy_insights %}
+                <li style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.95rem; color: var(--text-primary);">
+                    <span style="color: var(--accent);">✦</span>
+                    <span>{{ insight }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<!-- Cyclic Alerts Section -->
+{% if report.cyclic_alerts %}
+<div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--danger);">
+    <div class="card-header">
+        <h2>🔄 Cyclic Pattern Alerts</h2>
+        <span class="status-pill status-danger">High Urgency</span>
+    </div>
+    <div style="padding: 1.25rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            {% for alert in report.cyclic_alerts %}
+                <div style="padding: 0.85rem 1rem; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.2); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #fca5a5;">{{ alert.status }}</strong> &mdash; {{ alert.message }}
+                    </div>
+                    <span class="status-pill status-danger">{{ alert.cycle_length }}-Year Cycle</span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- High-Yield Topics Leaderboard -->
+{% if report.top_topics %}
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h2>🏆 High-Yield Topic Probabilities</h2>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Domain / Topic</th>
+                    <th>Corpus Questions</th>
+                    <th>Bayesian Prob</th>
+                    <th>Poisson Arrival</th>
+                    <th>Cyclic Score</th>
+                    <th>Keywords</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in report.top_topics %}
+                <tr>
+                    <td><strong>{{ t.name }}</strong></td>
+                    <td>{{ t.question_count }} Qs</td>
+                    <td>
+                        <span class="status-pill {% if t.bayesian_prob >= 0.7 %}status-danger{% elif t.bayesian_prob >= 0.4 %}status-warning{% else %}status-info{% endif %}">
+                            {{ (t.bayesian_prob * 100)|round(1) }}%
+                        </span>
+                    </td>
+                    <td>{{ (t.poisson_prob * 100)|round(1) }}%</td>
+                    <td>{{ (t.cyclic_score * 100)|round(1) }}%</td>
+                    <td style="color: var(--text-secondary); font-size: 0.85rem;">{{ t.top_keywords|join(", ") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Ranked Predictions List with Filters -->
+<section class="card">
+    <div class="card-header" style="flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2>Ranked Question Predictions</h2>
+            <p class="subtitle" style="margin-bottom: 0;">Ordered by composite ensemble score combining all 6 algorithms</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select id="confidenceFilter" class="form-control" style="width: auto; padding: 0.4rem 0.75rem; font-size: 0.85rem;" onchange="filterQuestions()">
+                <option value="all">All Confidence Levels</option>
+                <option value="Very High Confidence">🔴 Very High Confidence</option>
+                <option value="Medium Confidence">🟡 Medium Confidence</option>
+                <option value="Low Confidence">🟢 Low Confidence</option>
+            </select>
+            <select id="typeFilter" class="form-control" style="width: auto; padding: 0.4rem 0.75rem; font-size: 0.85rem;" onchange="filterQuestions()">
+                <option value="all">All Question Types</option>
+                <option value="mcq">MCQ</option>
+                <option value="short_answer">Short Answer</option>
+                <option value="long_answer">Long Answer</option>
+                <option value="numerical">Numerical</option>
+            </select>
+        </div>
+    </div>
+
+    <div style="padding: 1.25rem;">
+        {% if not report.ranked_questions %}
+            <div style="text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">
+                <p>No questions currently extracted in database. Upload past papers to run predictions.</p>
+                <a href="{{ url_for('upload_page') }}" class="btn btn-primary" style="margin-top: 1rem;">Upload Past Papers</a>
+            </div>
+        {% else %}
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;" id="questionsContainer">
+                {% for q in report.ranked_questions %}
+                <div class="question-prediction-card" data-confidence="{{ q.confidence_label }}" data-type="{{ q.question_type }}" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                    <!-- Top Bar: Rank, Confidence, Composite Score -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-weight: 700; color: var(--accent); font-family: var(--font-mono); font-size: 1.1rem;">#{{ loop.index }}</span>
+                            <span class="status-pill {% if q.confidence_label == 'Very High Confidence' %}status-danger{% elif q.confidence_label == 'Medium Confidence' %}status-warning{% else %}status-info{% endif %}">
+                                {{ q.confidence_badge }} {{ q.confidence_label }}
+                            </span>
+                            <span class="status-pill" style="background: rgba(255, 255, 255, 0.05); color: var(--text-secondary);">
+                                {{ q.question_type|replace('_', ' ')|title }} &bull; {{ q.marks }} Mark{% if q.marks > 1 %}s{% endif %}
+                            </span>
+                            <span class="status-pill" style="background: var(--purple-bg); color: var(--purple);">
+                                {{ q.topic_name }}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-size: 0.85rem; color: var(--text-secondary);">Composite:</span>
+                            <strong style="font-size: 1.15rem; color: var(--text-primary); font-family: var(--font-mono);">{{ (q.composite_score * 100)|round(1) }}%</strong>
+                        </div>
+                    </div>
+
+                    <!-- Question Text -->
+                    <div style="font-size: 1.05rem; line-height: 1.6; margin-bottom: 0.85rem; color: var(--text-primary);">
+                        {{ q.question_text }}
+                    </div>
+
+                    <!-- MCQ Options if present -->
+                    {% if q.options %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.5rem; margin-bottom: 0.85rem;">
+                        {% for opt in q.options %}
+                        <div style="padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-sm); font-size: 0.9rem;">
+                            <strong style="color: var(--accent);">({{ opt.label }})</strong> {{ opt.text }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Answer if available -->
+                    {% if q.answer %}
+                    <div style="margin-bottom: 0.85rem; font-size: 0.9rem; color: var(--success);">
+                        <strong>Answer:</strong> {{ q.answer }}
+                    </div>
+                    {% endif %}
+
+                    <!-- 6 Algorithms Breakdown Bar -->
+                    <div style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-wrap: wrap; gap: 0.85rem; font-size: 0.8rem; color: var(--text-secondary);">
+                        <div><strong>Bayesian:</strong> {{ (q.algorithm_scores.bayesian * 100)|round(0) }}%</div>
+                        <div><strong>Markov:</strong> {{ (q.algorithm_scores.markov * 100)|round(0) }}%</div>
+                        <div><strong>Poisson:</strong> {{ (q.algorithm_scores.poisson * 100)|round(0) }}%</div>
+                        <div><strong>Cyclic:</strong> {{ (q.algorithm_scores.cyclic * 100)|round(0) }}%</div>
+                        <div><strong>Association:</strong> {{ (q.algorithm_scores.association * 100)|round(0) }}%</div>
+                        <div><strong>PageRank:</strong> {{ (q.algorithm_scores.pagerank * 100)|round(0) }}%</div>
+                        <div style="margin-left: auto;">Bloom: <strong>{{ q.bloom_level|title }}</strong> &bull; Tier: <strong>{{ q.difficulty_tier }}</strong></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+function filterQuestions() {
+    const confVal = document.getElementById('confidenceFilter').value;
+    const typeVal = document.getElementById('typeFilter').value;
+    const cards = document.querySelectorAll('.question-prediction-card');
+
+    cards.forEach(card => {
+        const cardConf = card.getAttribute('data-confidence');
+        const cardType = card.getAttribute('data-type');
+
+        const confMatch = (confVal === 'all' || cardConf === confVal);
+        const typeMatch = (typeVal === 'all' || cardType === typeVal);
+
+        if (confMatch && typeMatch) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}
